@@ -6,7 +6,7 @@
   <title>幕張ベイパーク — CITY LAB</title>
   <meta name="description" content="幕張ベイパークの街を3Dで探索。時間・人口・バス・保育の条件を変え、街の未来をシミュレーション。">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101d2a'/%3E%3Cpath d='M14 48V26h9v22m5 0V14h10v34m5 0V32h8v16' fill='none' stroke='%236fe5c6' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./style.css?v=access2">
   <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
 </head>
 <body>
@@ -21,6 +21,9 @@
       <div class="map-heading"><div class="eyebrow">CHIBA, JAPAN <span>MIHAMA WARD</span></div><h1>幕張ベイパーク<span class="heading-dot">.</span></h1><p>駅へ、公園へ。暮らしの道をたどる。</p></div>
       <div id="scene" tabindex="0" aria-label="3D街並み。ドラッグで回転、スクロールで拡大。建物の情報は施設一覧からも選べます。"></div>
       <div id="scene-error" hidden><strong>3D表示を開始できませんでした</strong><p>WebGLが利用できるブラウザで開いてください。右側の操作とシミュレーションは利用できます。</p></div>
+      <div id="map2d" hidden></div>
+      <div class="display-switch" aria-label="地図の表示形式"><button data-mapmode="3d" class="active" aria-pressed="true">3D 街並み</button><button data-mapmode="map" aria-pressed="false">2D 位置を確認</button></div>
+      <div id="map2d-tools" hidden><button data-mapfocus="area">全体</button><button data-mapfocus="station">駅を詳しく</button><button id="map2d-plus" aria-label="2D地図を拡大">＋</button><button id="map2d-minus" aria-label="2D地図を縮小">−</button><span>↑ 北 · ドラッグで移動</span></div>
       <div id="labels" aria-hidden="true"></div>
       <div class="view-switch" aria-label="街の表示レイヤー"><button data-layer="flow" aria-pressed="false"><span>⁙</span> 人の流れ</button><button data-layer="city" class="active" aria-pressed="true"><span>▦</span> 街並み</button><button data-layer="mobility" aria-pressed="false"><span>⇄</span> 駅への導線</button><button data-layer="access" aria-pressed="false"><span>◎</span> 徒歩圏</button></div>
       <div class="map-framing" aria-label="表示範囲"><button data-view="district">街区を詳しく</button><button data-view="area" class="active">駅・公園まで</button><button data-view="overhead">真上から</button></div><div class="map-actions"><button id="orbit-toggle" title="自動回転" aria-label="自動回転" aria-pressed="false">⟳</button><button id="zoom-in" title="拡大" aria-label="拡大">＋</button><button id="zoom-out" title="縮小" aria-label="縮小">−</button><button id="view-reset" title="視点を戻す" aria-label="視点を戻す">⌖</button></div>
@@ -37,16 +40,20 @@
       <h2>この街の、これから。</h2><p class="panel-intro">条件を変えて、暮らしの変化を見てみよう。</p>
       <section id="flow-panel" class="flow-panel" aria-label="アリーナ開催日の人流条件" hidden>
         <div class="flow-direction"><button data-flow-direction="arrive">来場<span>駅 → 計画区域</span></button><button data-flow-direction="depart" class="active">退場<span>計画区域 → 駅</span></button></div>
-        <p class="flow-premise">2030年以降の開催日を仮定。接続点はAブロック西側の沿道に仮置きしています。</p>
-        <div class="flow-stats"><div><span>到着済み</span><strong id="flow-arrived">0<small>人</small></strong></div><div><span>待ち人数</span><strong id="flow-queue">0<small>人</small></strong></div><div><span>沿道にいる人</span><strong id="flow-walking">0<small>人</small></strong></div><div><span>到着済みの平均時間</span><strong id="flow-average">—<small>分</small></strong></div></div>
+        <p class="flow-premise">2030年以降の開催日を仮定。アリーナの接続点は実在のゲートではなく、外周に置く比較条件です。</p>
+        <div class="flow-stats"><div><span>到着済み</span><strong id="flow-arrived">0<small>人</small></strong></div><div><span>待ち人数</span><strong id="flow-queue">0<small>人</small></strong></div><div><span>沿道にいる人</span><strong id="flow-walking">0<small>人</small></strong></div><div><span id="flow-average-label">駅までの平均（到着済み）</span><strong id="flow-average">—<small>分</small></strong></div></div>
         <div class="flow-progress"><i id="flow-progress-bar"></i></div><p id="flow-counts" class="flow-secondary"></p>
+        <label class="gate-label" for="flow-gates">アリーナの仮接続点</label><select id="flow-gates"><option value="1">1か所 · 西</option><option value="2" selected>2か所 · 西 / 北</option><option value="4">4か所 · 西 / 北 / 東 / 南</option></select>
+        <p class="flow-secondary">各改札グループの人数を接続点へ均等配分。中央口は南北の短い経路を使用。公園口北側は屋外接続未確認のため対象外です。</p>
+        <div id="flow-gate-results" aria-label="接続点別の到着状況"></div>
+        <details class="flow-assumptions"><summary>位置の根拠を確認</summary><p id="map-evidence">2D地図の点を選ぶと根拠を表示します。緑・青＝駅の屋外接続（位置は概略）、灰＝接続未確認、橙＝アリーナの仮定。</p><a href="https://www.jreast.co.jp/estation/stations/413.html" target="_blank" rel="noopener noreferrer">JR公式構内図 ↗</a></details>
         <div class="slider-control"><label for="flow-people">駅を使う人数 <output id="flow-people-output"></output></label><input id="flow-people" type="range" min="1000" max="20000" step="1000" value="8000"></div>
         <div class="slider-control"><label for="flow-releaseMinutes">出発を分散する時間 <output id="flow-releaseMinutes-output"></output></label><input id="flow-releaseMinutes" type="range" min="5" max="60" step="5" value="15"><div class="range-ends"><span>5分に集中</span><span>60分に分散</span></div></div>
-        <div class="slider-control"><label for="flow-parkShare">公園改札に向かう割合 <output id="flow-parkShare-output"></output></label><input id="flow-parkShare" type="range" min="0" max="100" step="10" value="70"><div class="range-ends"><span>残りは南口へ</span><span>公園改札 100%</span></div></div>
+        <div class="slider-control"><label for="flow-parkShare">公園改札に向かう割合 <output id="flow-parkShare-output"></output></label><input id="flow-parkShare" type="range" min="0" max="100" step="10" value="70"><div class="range-ends"><span>残りは中央改札へ</span><span>公園改札 100%</span></div></div>
         <div class="slider-control"><label for="flow-width">歩道の有効幅（仮定） <output id="flow-width-output"></output></label><input id="flow-width" type="range" min="2" max="8" step="1" value="4"><div class="range-ends"><span>全経路に同じ幅を適用</span><span>2〜8m</span></div></div>
         <p class="flow-secondary">条件を変えると最初から計算します。到着時間は予定出発時刻から計測し、出発待ちを含みます。</p>
         <div class="flow-chart"><div><span>移動の推移</span><span><i></i>到着 <i></i>待ち</span></div><svg viewBox="0 0 280 70" role="img" aria-label="到着人数と待ち人数の推移"><path id="flow-chart-arrived" fill="none" stroke="#75edc9" stroke-width="2"/><path id="flow-chart-queue" fill="none" stroke="#f2af80" stroke-width="2"/></svg><p id="flow-chart-caption">開始からの累積到着数と、その時点の待ち人数</p></div>
-        <details class="flow-assumptions"><summary>モデルの前提</summary><p>1点は10人の集団。歩行速度80m/分を基準とし、同じ道の人数が増えると減速・入場待ちが生じます。通過能力の上限は有効幅1mあたり毎秒0.9人と仮定しています。幅・係数は実測値ではありません。</p><p>現在の公開歩道を使用し、計画区域の内部には入りません。入場ゲート・改札処理・列車待ち・信号・一般歩行者との交錯は未計算です。実際の混雑予測や安全判定には使えません。</p><p id="flow-route-facts"></p></details>
+        <details class="flow-assumptions"><summary>モデルの前提</summary><p>1点は10人の集団。歩行速度80m/分を基準とし、同じ道の人数が増えると減速・入場待ちが生じます。通過能力の上限は有効幅1mあたり毎秒0.9人と仮定しています。幅・係数は実測値ではありません。</p><p>現在の公開歩道を使用し、計画区域の内部には入りません。ゲートの処理能力・改札処理・列車待ち・信号・一般歩行者との交錯は未計算です。実際の混雑予測や安全判定には使えません。</p><p id="flow-route-facts"></p></details>
       </section>
       <section id="route-panel" class="route-panel" aria-label="海浜幕張駅への参考経路"><div class="route-panel-heading"><h3>海浜幕張駅への道</h3><span>歩道データから算出</span></div><label for="route-origin">出発する街区</label><select id="route-origin"></select><label for="route-exit">駅の出入口</label><select id="route-exit"><option value="park">公園改札</option><option value="south">南口（中央改札）</option></select><div id="route-result" aria-live="polite"></div><p id="route-notice"></p></section><div class="metrics">
         <div class="metric-primary"><div><span>シミュレーション人口</span><strong id="population-value">7,328<small>人</small></strong></div><svg class="sparkline" viewBox="0 0 94 45" aria-hidden="true"><defs><linearGradient id="spark-fill" x2="0" y2="1"><stop stop-color="#72e6c5" stop-opacity=".22"/><stop offset="1" stop-color="#72e6c5" stop-opacity="0"/></linearGradient></defs><path d="M2 41L14 37 23 38 33 27 46 29 57 21 70 17 80 8 92 3V45H2Z" fill="url(#spark-fill)"/><path d="M2 41L14 37 23 38 33 27 46 29 57 21 70 17 80 8 92 3" fill="none" stroke="#72e6c5" stroke-width="2"/></svg></div>
@@ -72,6 +79,6 @@
 
   <dialog id="sources-dialog"><div class="dialog-heading"><div><div class="eyebrow">ABOUT THIS MODEL</div><h2>実際の街と、もしもの未来。</h2></div><button id="sources-close" aria-label="閉じる">×</button></div><div id="sources-content"></div></dialog>
   <noscript><p class="noscript">このシミュレーターにはJavaScriptが必要です。</p></noscript>
-  <script type="module" src="./app.mjs"></script>
+  <script type="module" src="./app.mjs?v=access2"></script>
 </body>
 </html>

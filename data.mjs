@@ -1,4 +1,4 @@
-import {BUILDINGS,G,center,project,PARK_A,PARK_B,PARK_CENTER,STATION_CENTER} from './map-data.mjs';
+import {BUILDINGS,G,center,project,PARK_A,PARK_B,PARK_CENTER,STATION_CENTER} from './map-data.mjs?v=access2';
 export const SOURCES = {
   osm: 'https://www.openstreetmap.org/copyright',
   layout: 'https://www.makuhari-pj6.com/shinchiku/G2571001/baypark.html',

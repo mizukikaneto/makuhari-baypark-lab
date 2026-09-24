@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import {OrbitControls} from './vendor/OrbitControls.js';
-import {createFlowView} from './flow-view.mjs';
-import {FACILITIES} from './data.mjs';
-import {G,BUILDINGS,PARK_A,PARK_B,PARK_CENTER,STATION_CENTER,EXITS,walkingRoute,inPolygon,center,project} from './map-data.mjs';
+import {createFlowView} from './flow-view.mjs?v=access2';
+import {FACILITIES} from './data.mjs?v=access2';
+import {G,BUILDINGS,PARK_A,PARK_B,PARK_CENTER,STATION_CENTER,EXITS,walkingRoute,inPolygon,center,project} from './map-data.mjs?v=access2';
 
 export function createCity(container,labelsContainer,onSelect){
   const scene=new THREE.Scene();
@@ -162,7 +162,7 @@ export function createCity(container,labelsContainer,onSelect){
       const priority=id=>id===state.origin?0:id==='station'?1:id==='arena'?2:3;
       for(const l of [...labels].sort((a,b)=>priority(a.f.id)-priority(b.f.id))){
         const remote=['station','parkA','parkB','parkC','arena'].includes(l.f.id);
-        const allowed=state.layer==='flow'?(l.f.type==='flow'||l.f.id==='arena'):l.f.type!=='flow'&&(state.view==='district'?!remote:[state.origin,'station','arena','parkB','parkC','park'].includes(l.f.id));
+        const allowed=state.layer==='flow'?(l.f.type==='flow'&&l.f.active!==false||l.f.id==='arena'):l.f.type!=='flow'&&(state.view==='district'?!remote:[state.origin,'station','arena','parkB','parkC','park'].includes(l.f.id));
         vector.copy(l.p).project(camera);const x=(vector.x*.5+.5)*bounds.width,y=(-vector.y*.5+.5)*bounds.height;
         l.el.hidden=!(allowed&&vector.z<1&&vector.z>-1&&y>50&&y<bounds.height-65);
         if(l.el.hidden)continue;
