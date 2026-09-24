@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#101d2a">
+  <title>幕張ベイパーク — CITY LAB</title>
+  <meta name="description" content="幕張ベイパークの街を3Dで探索。時間・人口・バス・保育の条件を変え、街の未来をシミュレーション。">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23101d2a'/%3E%3Cpath d='M14 48V26h9v22m5 0V14h10v34m5 0V32h8v16' fill='none' stroke='%236fe5c6' stroke-width='5'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="./style.css">
+  <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
+</head>
+<body>
+  <header class="header">
+    <a href="./" class="brand" aria-label="CITY LAB ホーム"><svg viewBox="0 0 28 28" aria-hidden="true"><path d="M3 24V13h6v11m3 0V4h6v20m3 0V16h5v8"/></svg><span>CITY<span class="brand-light">LAB</span><small>MAKUHARI BAY PARK</small></span></a>
+    <div class="header-center">街の未来は、ひとつじゃない。</div>
+    <button id="sources-open" class="quiet-button">出典・再現精度 <span aria-hidden="true">↗</span></button>
+  </header>
+
+  <main class="workspace">
+    <section class="map-section" aria-label="幕張ベイパーク 3Dマップ">
+      <div class="map-heading"><div class="eyebrow">CHIBA, JAPAN <span>MIHAMA WARD</span></div><h1>幕張ベイパーク<span class="heading-dot">.</span></h1><p>駅へ、公園へ。暮らしの道をたどる。</p></div>
+      <div id="scene" tabindex="0" aria-label="3D街並み。ドラッグで回転、スクロールで拡大。建物の情報は施設一覧からも選べます。"></div>
+      <div id="scene-error" hidden><strong>3D表示を開始できませんでした</strong><p>WebGLが利用できるブラウザで開いてください。右側の操作とシミュレーションは利用できます。</p></div>
+      <div id="labels" aria-hidden="true"></div>
+      <div class="view-switch" aria-label="街の表示レイヤー"><button data-layer="flow" aria-pressed="false"><span>⁙</span> 人の流れ</button><button data-layer="city" class="active" aria-pressed="true"><span>▦</span> 街並み</button><button data-layer="mobility" aria-pressed="false"><span>⇄</span> 駅への導線</button><button data-layer="access" aria-pressed="false"><span>◎</span> 徒歩圏</button></div>
+      <div class="map-framing" aria-label="表示範囲"><button data-view="district">街区を詳しく</button><button data-view="area" class="active">駅・公園まで</button><button data-view="overhead">真上から</button></div><div class="map-actions"><button id="orbit-toggle" title="自動回転" aria-label="自動回転" aria-pressed="false">⟳</button><button id="zoom-in" title="拡大" aria-label="拡大">＋</button><button id="zoom-out" title="縮小" aria-label="縮小">−</button><button id="view-reset" title="視点を戻す" aria-label="視点を戻す">⌖</button></div>
+      <div class="map-compass" aria-hidden="true"><span>N</span><svg viewBox="0 0 40 40"><path d="M20 5L27 30 20 26 13 30Z" fill="currentColor"/></svg></div>
+      <div class="map-legend"><span><i class="legend-existing"></i>既存施設</span><span><i class="legend-planned"></i>計画・工事区域</span><span><i class="legend-park"></i>公園・緑地</span></div>
+      <div class="map-note"><span class="mouse-symbol">⌘</span> ドラッグで回転 · スクロールで拡大 <a class="map-model-note" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© OpenStreetMap contributors</a></div>
+      <div id="building-card" class="building-card" hidden></div>
+      <div id="flow-hud" class="flow-hud" hidden><div><span class="eyebrow">EVENT DAY · 仮定シミュレーション</span><strong id="flow-clock">00:00</strong></div><div class="flow-hud-actions"><button id="flow-play">再生</button><button id="flow-restart" aria-label="人流を最初から">↺</button><select id="flow-speed" aria-label="人流の再生速度"><option value="30">30倍速</option><option value="60" selected>60倍速</option><option value="120">120倍速</option></select></div><p id="flow-live-summary" role="status">再生すると人の移動が始まります。</p></div>
+      <div id="access-note" class="access-note" hidden></div>
+    </section>
+
+    <aside class="control-panel" aria-label="シミュレーション設定">
+      <div class="panel-top"><div class="eyebrow">URBAN SIMULATION</div><span class="model-badge">仮定モデル</span></div>
+      <h2>この街の、これから。</h2><p class="panel-intro">条件を変えて、暮らしの変化を見てみよう。</p>
+      <section id="flow-panel" class="flow-panel" aria-label="アリーナ開催日の人流条件" hidden>
+        <div class="flow-direction"><button data-flow-direction="arrive">来場<span>駅 → 計画区域</span></button><button data-flow-direction="depart" class="active">退場<span>計画区域 → 駅</span></button></div>
+        <p class="flow-premise">2030年以降の開催日を仮定。接続点はAブロック西側の沿道に仮置きしています。</p>
+        <div class="flow-stats"><div><span>到着済み</span><strong id="flow-arrived">0<small>人</small></strong></div><div><span>待ち人数</span><strong id="flow-queue">0<small>人</small></strong></div><div><span>沿道にいる人</span><strong id="flow-walking">0<small>人</small></strong></div><div><span>到着済みの平均時間</span><strong id="flow-average">—<small>分</small></strong></div></div>
+        <div class="flow-progress"><i id="flow-progress-bar"></i></div><p id="flow-counts" class="flow-secondary"></p>
+        <div class="slider-control"><label for="flow-people">駅を使う人数 <output id="flow-people-output"></output></label><input id="flow-people" type="range" min="1000" max="20000" step="1000" value="8000"></div>
+        <div class="slider-control"><label for="flow-releaseMinutes">出発を分散する時間 <output id="flow-releaseMinutes-output"></output></label><input id="flow-releaseMinutes" type="range" min="5" max="60" step="5" value="15"><div class="range-ends"><span>5分に集中</span><span>60分に分散</span></div></div>
+        <div class="slider-control"><label for="flow-parkShare">公園改札に向かう割合 <output id="flow-parkShare-output"></output></label><input id="flow-parkShare" type="range" min="0" max="100" step="10" value="70"><div class="range-ends"><span>残りは南口へ</span><span>公園改札 100%</span></div></div>
+        <div class="slider-control"><label for="flow-width">歩道の有効幅（仮定） <output id="flow-width-output"></output></label><input id="flow-width" type="range" min="2" max="8" step="1" value="4"><div class="range-ends"><span>全経路に同じ幅を適用</span><span>2〜8m</span></div></div>
+        <p class="flow-secondary">条件を変えると最初から計算します。到着時間は予定出発時刻から計測し、出発待ちを含みます。</p>
+        <div class="flow-chart"><div><span>移動の推移</span><span><i></i>到着 <i></i>待ち</span></div><svg viewBox="0 0 280 70" role="img" aria-label="到着人数と待ち人数の推移"><path id="flow-chart-arrived" fill="none" stroke="#75edc9" stroke-width="2"/><path id="flow-chart-queue" fill="none" stroke="#f2af80" stroke-width="2"/></svg><p id="flow-chart-caption">開始からの累積到着数と、その時点の待ち人数</p></div>
+        <details class="flow-assumptions"><summary>モデルの前提</summary><p>1点は10人の集団。歩行速度80m/分を基準とし、同じ道の人数が増えると減速・入場待ちが生じます。通過能力の上限は有効幅1mあたり毎秒0.9人と仮定しています。幅・係数は実測値ではありません。</p><p>現在の公開歩道を使用し、計画区域の内部には入りません。入場ゲート・改札処理・列車待ち・信号・一般歩行者との交錯は未計算です。実際の混雑予測や安全判定には使えません。</p><p id="flow-route-facts"></p></details>
+      </section>
+      <section id="route-panel" class="route-panel" aria-label="海浜幕張駅への参考経路"><div class="route-panel-heading"><h3>海浜幕張駅への道</h3><span>歩道データから算出</span></div><label for="route-origin">出発する街区</label><select id="route-origin"></select><label for="route-exit">駅の出入口</label><select id="route-exit"><option value="park">公園改札</option><option value="south">南口（中央改札）</option></select><div id="route-result" aria-live="polite"></div><p id="route-notice"></p></section><div class="metrics">
+        <div class="metric-primary"><div><span>シミュレーション人口</span><strong id="population-value">7,328<small>人</small></strong></div><svg class="sparkline" viewBox="0 0 94 45" aria-hidden="true"><defs><linearGradient id="spark-fill" x2="0" y2="1"><stop stop-color="#72e6c5" stop-opacity=".22"/><stop offset="1" stop-color="#72e6c5" stop-opacity="0"/></linearGradient></defs><path d="M2 41L14 37 23 38 33 27 46 29 57 21 70 17 80 8 92 3V45H2Z" fill="url(#spark-fill)"/><path d="M2 41L14 37 23 38 33 27 46 29 57 21 70 17 80 8 92 3" fill="none" stroke="#72e6c5" stroke-width="2"/></svg></div>
+        <div class="metric-row"><div><span>道路の混雑指数</span><strong id="traffic-value">42<small>/ 100</small></strong><div class="meter"><i id="traffic-bar"></i></div></div><div><span>保育の充足率</span><strong id="nursery-value">87<small>%</small></strong><div class="meter"><i id="nursery-bar"></i></div></div></div>
+      </div>
+      <div class="controls-title"><h3>未来の条件</h3><button id="reset-simulation">リセット</button></div>
+      <div class="slider-control"><label for="occupancy"><span class="control-icon">▥</span> 入居率 <output id="occupancy-output">90<small>%</small></output></label><input id="occupancy" type="range" min="40" max="100" step="1" value="90"><div class="range-ends"><span>ゆとりある街</span><span>満室に近い街</span></div></div>
+      <div class="slider-control"><label for="buses"><span class="control-icon">⇄</span> バスの本数 <output id="buses-output">6<small>本 / 時</small></output></label><input id="buses" type="range" min="0" max="16" step="1" value="6"><div class="range-ends"><span>0本</span><span>16本</span></div></div>
+      <div class="slider-control"><label for="nurseries"><span class="control-icon">✣</span> 保育定員を追加 <output id="nurseries-output">0<small>人</small></output></label><input id="nurseries" type="range" min="0" max="400" step="20" value="0"><div class="range-ends"><span>追加なし</span><span>＋400人</span></div></div>
+      <div id="insight" class="insight"><span aria-hidden="true">✧</span><p>入居が進むほど、街を支える交通や保育も大切になります。</p></div>
+      <div class="perspective"><h3>暮らしの視点</h3><div class="segmented"><button data-persona="family" class="active" aria-pressed="true">子育て</button><button data-persona="commuter" aria-pressed="false">通勤</button><button data-persona="senior" aria-pressed="false">シニア</button></div><p id="persona-description">保育施設と公園を中心に、徒歩圏を確認。</p></div>
+      <details class="facility-list"><summary>街の施設を選ぶ <span>＋</span></summary><div id="facility-options"></div></details>
+    </aside>
+
+    <section class="timeline" aria-label="時間の操作">
+      <div class="timeline-year"><span class="eyebrow">TIME TRAVEL</span><div><strong id="year-value">2026</strong><span id="year-status">現在の街</span></div></div>
+      <button id="play-time" class="play-button" aria-label="街の成長を再生" aria-pressed="false"><svg viewBox="0 0 24 24"><path d="M9 5L20 12 9 19Z" fill="currentColor"/></svg></button>
+      <div class="timeline-track"><div class="year-labels"><span>2019</span><span>2021</span><span>2024</span><span class="now-label">2026 · NOW</span><span>2028</span><span>2030</span></div><input id="year" type="range" min="2019" max="2030" step="1" value="2026" aria-label="表示する年"><div class="timeline-caption"><span id="year-event">ライズゲートタワーが加わる街へ</span><span>将来の配置は公表計画を参照</span></div></div>
+      <div class="day-switch" aria-label="時間帯"><button data-time="day" aria-pressed="false">☀<span>昼</span></button><button data-time="dusk" class="active" aria-pressed="true">◒<span>夕</span></button><button data-time="night" aria-pressed="false">☾<span>夜</span></button></div>
+    </section>
+  </main>
+  <footer class="footer"><span>MAKUHARI BAY PARK <span class="footer-divider">/</span> AN INTERACTIVE CITY STUDY</span><span>情報基準日 2026.09.24 · 非公式の体験型デモ</span></footer>
+
+  <dialog id="sources-dialog"><div class="dialog-heading"><div><div class="eyebrow">ABOUT THIS MODEL</div><h2>実際の街と、もしもの未来。</h2></div><button id="sources-close" aria-label="閉じる">×</button></div><div id="sources-content"></div></dialog>
+  <noscript><p class="noscript">このシミュレーターにはJavaScriptが必要です。</p></noscript>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>
